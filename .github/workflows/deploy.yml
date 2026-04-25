@@ -1,0 +1,47 @@
+name: CI/CD - Build, Push to Docker Hub, Deploy to Render
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Clonar el código
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Iniciar sesión en Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3. Construir la imagen Docker
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/mi-app-mysql:latest ./src
+
+      # 4. Subir la imagen a Docker Hub
+      - name: Push Docker image to Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/mi-app-mysql:latest
+
+      # 5. (Opcional) Verificar que la imagen se subió bien
+      - name: Verify image
+        run: |
+          docker image ls | grep mi-app-mysql
+
+      # 6. Disparar despliegue en Render.com (usando su API Key)
+      - name: Deploy to Render
+        run: |
+          curl -X POST \
+            -H "Accept: application/json" \
+            -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"serviceId": "${{ secrets.RENDER_SERVICE_ID }}"}' \
+            https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys
